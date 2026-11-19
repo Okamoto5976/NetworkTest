@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using TMPro;
+using Unity.Netcode;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Lobbies;
@@ -47,6 +48,7 @@ public class LobbyManager : MonoBehaviour
     public const string KEY_RELAY_CODE = "RelayCode";
     private float m_heartbeatTimer;
     private float m_heartbeatInterval = 15f;
+    private float m_lobbyUpdateTimer;
 
     private string m_playerName;
 
@@ -71,7 +73,7 @@ public class LobbyManager : MonoBehaviour
         LobbyBanner.OnJoinLobby += (sender, lobby) =>
         {
             Debug.Log("JoinLobby LobbyID=" + lobby.Id.ToString());
-            JoinLobby(lobby);
+            JoinPublicLobby(lobby);
         };
 
         LobbyListView.OnRefreshLobbyListRequest += (sender, e) =>
@@ -79,6 +81,8 @@ public class LobbyManager : MonoBehaviour
             RefreshLobbies();
         };
 
+        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+        NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
 
         m_playerName = "PlayerName" + UnityEngine.Random.Range(0, 1000).ToString();
 
@@ -99,17 +103,18 @@ public class LobbyManager : MonoBehaviour
         await AuthenticationService.Instance.SignInAnonymouslyAsync();
     }
 
+    private void OnDestroy()
+    {
+        if (NetworkManager.Singleton == null) return;
+
+        NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+        NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+    }
+
     private void Update()
     {
         RefreshLobbyHeatbeat();
-
-        if (Keyboard.current.cKey.wasPressedThisFrame)
-        {
-            if (m_joinedLobby == null)
-            {
-                CreateLobby();
-            }
-        }
+        HandleLobbyPollForUpdates();
     }
 
     private async void RefreshLobbies()
@@ -130,7 +135,28 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-    private async void JoinLobby(Lobby lobby)
+    private void GetPlayerData(Lobby lobby)
+    {
+        foreach (Player player in lobby.Players)
+        {
+            string playerId = player.Id;
+
+            if (player.Data.TryGetValue(
+                "PlayerName",
+                out PlayerDataObject data))
+            {
+                Debug.Log($"PlayerID : {playerId}");
+                Debug.Log($"PlayerName : {data.Value}");
+            }
+        }
+    }
+
+    //private async void JoinPrivateLobby(string name)
+    //{
+
+    //}
+
+    private async void JoinPublicLobby(Lobby lobby)
     {
         try
         {
@@ -164,6 +190,35 @@ public class LobbyManager : MonoBehaviour
                 await LobbyService.Instance.SendHeartbeatPingAsync(m_joinedLobby.Id);
             }
         }
+    }
+
+    private async void HandleLobbyPollForUpdates()
+    {if(m_joinedLobby != null)
+        {
+            m_lobbyUpdateTimer -= Time.deltaTime;
+            if(m_lobbyUpdateTimer < 0f)
+            {
+                float lobbyUpdateTimerMax = 1.1f;
+                m_lobbyUpdateTimer = lobbyUpdateTimerMax;
+
+                Lobby lobby = await LobbyService.Instance.GetLobbyAsync(m_joinedLobby.Id);
+                m_joinedLobby = lobby;
+            }
+        }
+
+    }
+
+
+    private void OnClientConnected(ulong clientId)
+    {
+        if (clientId == NetworkManager.ServerClientId) return;
+
+        Debug.Log($"プレイヤー参加! ClientID : {clientId}");
+    }
+
+    private void OnClientDisconnected(ulong clientId)
+    {
+        Debug.Log($"プレイヤー退出! ClientID : {clientId}");
     }
 
     //optionsについて
