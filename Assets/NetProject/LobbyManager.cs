@@ -1,14 +1,42 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class LobbyManager : MonoBehaviour
 {
+    [Header("RoomSelect")]
+    [SerializeField] private Button m_hostButton;
+    [SerializeField] private Button m_publicButton;
+    [SerializeField] private Button m_privateButton;
+
+    [Header("CreateRoom")]
+    [SerializeField] private GameObject m_createRoomCanvas;
+
+    [SerializeField] private Button m_maxPlayer2Button;
+    [SerializeField] private Button m_maxPlayer3Button;
+    [SerializeField] private Button m_maxPlayer4Button;
+
+    [SerializeField] private Button m_roomPublicButton;
+    [SerializeField] private Button m_roomPrivateButton;
+    [SerializeField] private TMP_InputField m_lobbyInputField;
+    [SerializeField] private Button m_createRoomButton;
+
+    [SerializeField] private Button m_createRoomBackButton;
+ 
+    [Header("SearchPublicRoom")]
+    [SerializeField] private GameObject m_searchPublicRoomCanvas;
+    [SerializeField] private Button m_searchPublicBackButton;
+
+    private int m_maxPlayers;
+    private bool m_hasPrivate;
+
     private bool m_isHost = false;
 
     private Lobby m_joinedLobby;
@@ -21,6 +49,22 @@ public class LobbyManager : MonoBehaviour
     private float m_heartbeatInterval = 15f;
 
     private string m_playerName;
+
+    private void Awake()
+    {
+        m_hostButton.onClick.AddListener(() => ViewCreateRoomCanvas(true));
+        m_publicButton.onClick.AddListener(() => ViewSearchPublicRoomCanvas(true));
+        //createRoom
+        m_maxPlayer2Button.onClick.AddListener(() => MaxPlayer(2));
+        m_maxPlayer3Button.onClick.AddListener(() => MaxPlayer(3));
+        m_maxPlayer4Button.onClick.AddListener(() => MaxPlayer(4));
+        m_roomPrivateButton.onClick.AddListener(() => SetHasPlayer(true));
+        m_roomPublicButton.onClick.AddListener(() => SetHasPlayer(false));
+        m_createRoomButton.onClick.AddListener(() => CreateLobby());
+        m_createRoomBackButton.onClick.AddListener(() => ViewCreateRoomCanvas(false));
+        //searchPublicRoom
+        m_searchPublicBackButton.onClick.AddListener(() => ViewSearchPublicRoomCanvas(false));
+    }
 
     private async void Start()
     {
@@ -128,15 +172,25 @@ public class LobbyManager : MonoBehaviour
     //VisibilityOptions　public, member, private
     //それぞれ参加せずに読み取れる　参加した人物のみ読み取れる　Dataを所持するもののみ読みとれる
     //
+    private void ViewCreateRoomCanvas(bool value) => m_createRoomCanvas.SetActive(value);
+    private void ViewSearchPublicRoomCanvas(bool value) => m_searchPublicRoomCanvas.SetActive(value);
+    private void MaxPlayer(int num) => m_maxPlayers = num;
+    private void SetHasPlayer(bool value) => m_hasPrivate = value;
     public async void CreateLobby()
     {
+        string lobbyName = m_lobbyInputField.text;
+
+        if(lobbyName == null)
+        {
+            Debug.LogWarning("ロビーの名前を入力してください");
+            return;
+        }
+
         try
         {
-            string lobbyName = "TestLobby";
-            int maxPlayers = 4;
             CreateLobbyOptions createLobbyOptions = new CreateLobbyOptions()
             {
-                IsPrivate = false,
+                IsPrivate = m_hasPrivate,
                 //PlayerIdとはAuthenticationで取得したホストのPlayerID
                 Player = new Player(AuthenticationService.Instance.PlayerId)
                 {
@@ -145,14 +199,14 @@ public class LobbyManager : MonoBehaviour
                         {"PlayerName", new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public, m_playerName)}
                     }
                 }
-                //,
-                //Data = new Dictionary<string, DataObject>()
-                //{
-                //    {KEY_START_GAME, new DataObject(DataObject.VisibilityOptions.Member, "0")}
-                //}
+                ,
+                Data = new Dictionary<string, DataObject>()
+                {
+                    {"StartGame", new DataObject(DataObject.VisibilityOptions.Member, "0")}
+                }
             };
             m_isHost = true;
-            m_joinedLobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, createLobbyOptions);
+            m_joinedLobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, m_maxPlayers, createLobbyOptions);
             //lobby.id lobby.name lobby.code lobbymaxPlayers lobby.Players(参加してるプレイヤー一覧） lobby.IsPrivate
             Debug.Log("Lobby created: " + m_joinedLobby.Id);
         }
