@@ -22,7 +22,7 @@ public class LobbyBanner : MonoBehaviour
         m_joinButton.onClick.AddListener(() =>
         {
             OnJoinLobby?.Invoke(this, MyLobby);
-            Debug.Log("JoinLobby LobbyID=" + MyLobby.Id.ToString());
+            //Debug.Log("JoinLobby LobbyID=" + MyLobby.Id.ToString());
         });
     }
 }
