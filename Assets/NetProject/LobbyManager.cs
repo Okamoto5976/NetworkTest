@@ -555,6 +555,9 @@ public class LobbyManager : MonoBehaviour
         bool success = NetworkManager.Singleton.StartClient();
         Debug.Log($"StartClient開始結果 : {success}");
 
+        Debug.Log($"IsListening : {NetworkManager.Singleton.IsListening}");
+        Debug.Log($"IsClient : {NetworkManager.Singleton.IsClient}");
+
         if (!success)
         {
             throw new Exception("Clientの開始に失敗しました");
