@@ -79,6 +79,9 @@ public class LobbyManager : MonoBehaviour
     {
         NetworkManager.Singleton.OnClientConnectedCallback
             += OnClientConnected;
+
+        NetworkManager.Singleton.OnClientDisconnectCallback
+            += OnClientDisconnected;
     }
 
     private void OnDisable()
@@ -87,6 +90,9 @@ public class LobbyManager : MonoBehaviour
         {
             NetworkManager.Singleton.OnClientConnectedCallback
                 -= OnClientConnected;
+
+            NetworkManager.Singleton.OnClientDisconnectCallback
+                -= OnClientDisconnected;
         }
     }
     private void Awake()
@@ -526,11 +532,16 @@ public class LobbyManager : MonoBehaviour
         );
 
         transport.SetRelayServerData(relayServerData);
+
+        Debug.Log($"RelayCode : {relayCode}");
+
+
         return relayCode;
     }
 
     private async Task JoinRelay(string relayCode)
     {
+        Debug.Log($"RelayCode : {relayCode}");
         //Relayに参加するための情報を取得
         JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(relayCode);
 
@@ -553,7 +564,9 @@ public class LobbyManager : MonoBehaviour
     //Relayで接続時に呼ばれる　よってGameStart後に呼ばれる
     private void OnClientConnected(ulong clientId)
     {
-        Debug.Log($"接続イベント発生 ClientId : {clientId}");
+        Debug.Log(
+        $"[{(NetworkManager.Singleton.IsHost ? "Host" : "Client")}] Connected : {clientId}"
+    );
         //ホスト以外はシーン移動しない
         if (!NetworkManager.Singleton.IsHost) return;
 
@@ -569,6 +582,13 @@ public class LobbyManager : MonoBehaviour
         {
             LoadGameScene();
         }
+    }
+
+    private void OnClientDisconnected(ulong clientId)
+    {
+        Debug.Log(
+            $"[{(NetworkManager.Singleton.IsHost ? "Host" : "Client")}] Disconnected : {clientId}"
+        );
     }
     private void LoadGameScene()
     {
